@@ -40,12 +40,20 @@ def crear_reserva():
     nueva_reserva["_id"] = str(nueva_reserva["_id"])
     return jsonify({'message': 'Reserva creada con éxito', 'nueva_reserva': nueva_reserva}), 201
 
-@app.route('/reservas/<int:reserva_id>', methods=['DELETE'])
-def cancelar_reserva(reserva_id):
-    # Aquí manejaremos la cancelación de una reserva
-    global reservas
-    reservas = [reserva for reserva in reservas if reserva['id'] != reserva_id]
-    return jsonify({'message':'Reserva cancelada con éxito'}), 200
+@app.route('/reservas/<id_reserva>', methods=['DELETE'])
+def cancelar_reserva(id_reserva):
+  # Aquí manejaremos la cancelación de una reserva
+  global reservas
+
+  # Buscar la reserva en la base de datos
+  reserva_a_cancelar = db.reservas.find_one({"_id": ObjectId(id_reserva)})
+
+  if reserva_a_cancelar:
+    # Eliminar la reserva de la base de datos
+    db.reservas.delete_one({"_id": ObjectId(id_reserva)})
+    return jsonify(message="Reserva cancelada con exito"), 200
+  else:
+      return jsonify(message="Reserva no encontrada"), 404
 
 if __name__ == '__main__':
     app.run(debug=True)

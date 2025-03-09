@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from config import db  # Importamos el objeto db
 from bson.objectid import ObjectId
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -19,26 +20,54 @@ def crear_reserva():
     data = request.get_json()
 
     # Verificamos que la información necesaria esté presente
-    if not data or 'usuario' not in data or 'vehiculo' not in data:
-        return jsonify({'message': 'Información Invalida'}), 400
+    if not data or "usuario" not in data or "vehiculo" not in data:
+        return jsonify(message="Información Inválida"), 400
     
     #Verificamos que el usuario, vehiculo y fecha sean valores validos
-    if not isinstance(data['usuario'], str) or not isinstance(data['vehiculo'], str):
-        return jsonify({'message': 'Formato de Datos invalido'}), 400
+    if not isinstance(data["usuario"], str) or not isinstance(data["vehiculo"], str):
+        return jsonify(message="Formato de datos inválido"), 400
     
     nueva_reserva = {
-        "_id" : ObjectId(),
-        'usuario_id': data['usuario'],
-        'vehiculo_id': data['vehiculo'],
-        'fecha_inicio': data['fecha_inicio'],
-        'fecha_fin': data['fecha_fin'],
-        'estado': "Reservado"
+        "_id": ObjectId(),
+        "usuario_id": data["usuario"],
+        "vehiculo_id": data["vehiculo"],
+        "fecha_inicio": data["fecha_inicio"],
+        "fecha_fin": data["fecha_fin"],
+        "estado": "reservado"
     }
 
+     # Verificar si ya existe una reserva para el vehículo en el mismo rango de fechas
+    fecha_inicio_nueva = datetime.strptime(data["fecha_inicio"], "%Y-%m-%d")
+    fecha_fin_nueva = datetime.strptime(data["fecha_fin"], "%Y-%m-%d")
+
+    
+    reserva_existe = db.reservas.find_one({
+    "usuario_id": data["usuario"],
+    "vehiculo_id": data["vehiculo"],
+    "$or": [
+        {
+            "fecha_inicio": {"$lte": fecha_inicio_nueva},
+            "fecha_fin": {"$gte": fecha_inicio_nueva}
+        },
+        {
+            "fecha_inicio": {"$lte": fecha_fin_nueva},
+            "fecha_fin": {"$gte": fecha_fin_nueva}
+        },
+        {
+            "fecha_inicio": {"$gte": fecha_inicio_nueva},
+            "fecha_fin": {"$lte": fecha_fin_nueva}
+        }
+    ]
+    })
+
+    if reserva_existe:
+        return jsonify(message="Vehículo ya reservado en este rango de fechas"), 400
+    
     db.reservas.insert_one(nueva_reserva)
-    # Convertimos el _id a string para la respuesta JSON
+
+    # Convertimos el id a string para la respuesta JSON
     nueva_reserva["_id"] = str(nueva_reserva["_id"])
-    return jsonify({'message': 'Reserva creada con éxito', 'nueva_reserva': nueva_reserva}), 201
+    return jsonify(message="Reserva creada con exito", nueva_reserva=nueva_reserva), 201
 
 @app.route('/reservas/<id_reserva>', methods=['DELETE'])
 def cancelar_reserva(id_reserva):

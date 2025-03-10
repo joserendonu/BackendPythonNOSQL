@@ -64,6 +64,15 @@ def crear_reserva():
         return jsonify(message="Vehículo ya reservado en este rango de fechas"), 400
     
     db.reservas.insert_one(nueva_reserva)
+ 
+    # Actualizar historial de reservas del usuario
+    usuario = db.usuarios.find_one({"_id": ObjectId(request.get_json()['usuario_id'])})
+    if usuario:
+        historial_reservas = usuario.get("historial_reservas", [])
+        historial_reservas.append(nueva_reserva["_id"])    
+        db.usuarios.update_one(
+          {"_id": ObjectId(request.get_json()['usuario_id'])},
+           {"$set": {"historial_reservas": historial_reservas}}   )
 
     # Convertimos el id a string para la respuesta JSON
     nueva_reserva["_id"] = str(nueva_reserva["_id"])
@@ -114,6 +123,58 @@ def cancelar_reserva(id_reserva):
             return jsonify(message="La reserva solo se puede cancelar en la fecha de finalización o antes"), 400
     else:
         return jsonify(message="Reserva no encontrada"), 404
+
+@app.route("/reservas/<id_usuario>", methods=["GET"])
+def obtener_reservas(id_usuario):
+    reservas_usuario = []
+    reservas = db.reservas.find({"usuario_id": id_usuario})
+    for reserva in reservas:
+      # Convertir el ObjectId a string
+      reserva["_id"] = str(reserva["_id"])
+      reservas_usuario.append(reserva)
+
+    return jsonify(reservas_usuario)
+
+@app.route("/vehiculo_mas_reservado", methods=["GET"])
+def vehiculo_mas_reservado():
+    ahora = datetime.now()
+    mes_anterior = ahora - timedelta(days=30)
+    # Formatear la fecha al formato "YYYY-MM-DD"
+    fecha_mes_anterior = mes_anterior.strftime("%Y-%m-%d")
+    
+    reservas = db.reservas.find({"fecha_inicio": {"$gte": fecha_mes_anterior}})
+
+    vehiculos = {}
+    for reserva in reservas:
+        # Convertir ObjectId a String
+        if reserva["vehiculo_id"] in vehiculos:
+          vehiculos[reserva["vehiculo_id"]] += 1
+        else:
+          vehiculos[reserva["vehiculo_id"]] = 1
+          
+    if not vehiculos:
+      return jsonify({"mensaje": "No se encontraron reservas en el último mes"})
+
+    vehiculo_mas_reservado = max(vehiculos, key=vehiculos.get)
+    
+    return jsonify({"vehiculo_id_mas_reservado": vehiculo_mas_reservado, "numero_reservas": vehiculos[vehiculo_mas_reservado]})
+
+@app.route('/reservas/usuarios_con_mas_cancelaciones', methods=['GET'])
+def obtener_usuarios_con_mas_cancelaciones():
+    cancelaciones_por_usuario = {}
+    for reserva in db.reservas.find():
+        if reserva.get("estado") == "cancelado":
+            usuario_id = reserva.get("usuario_id")
+            if usuario_id in cancelaciones_por_usuario:
+                cancelaciones_por_usuario[usuario_id] += 1
+            else:
+                cancelaciones_por_usuario[usuario_id] = 1
+    usuarios_ordenados = sorted(cancelaciones_por_usuario.items(), key=lambda item: item[1], reverse=True)
+    # Convertir la lista de tuplas a una lista de diccionarios
+    lista_de_usuarios = []
+    for usuario, cantidad in usuarios_ordenados[:2]:
+        lista_de_usuarios.append({"usuario_id": usuario, "cancelaciones": cantidad})
+    return jsonify(lista_de_usuarios)
 
 
 if __name__ == '__main__':

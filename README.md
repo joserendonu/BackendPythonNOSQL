@@ -1,4 +1,29 @@
 # BackendPythonNOSQL
+PETICIONES
+createreserva
+http://127.0.0.1:5000/reservas
+
+{
+    "usuario_id": "67cd6e9b634212495ed5bee2",
+    "vehiculo_id": "67ce4e57f5d1215eb16175be",
+    "fecha_inicio": "2026-08-17",
+    "fecha_fin": "2026-03-26",
+    "estado": "asdf"
+}
+
+cancelar reserva
+http://127.0.0.1:5000/reservas/67ce579d44ce121a4fc99511
+
+
+obtener reservas
+http://127.0.0.1:5000/reservas/67cb922c97f80ff80416bf6f
+
+
+vehiculo_mas_reservado
+http://127.0.0.1:5000/vehiculo_mas_reservado
+
+usuario mas cancelaciones
+http://127.0.0.1:5000/reservas/usuarios_con_mas_cancelaciones
 
 REFERENCIAS
 Se debe instalar mongoDB
